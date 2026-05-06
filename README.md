@@ -154,7 +154,7 @@ streamlit run app.py
 
 ## 👨‍💻 Authors
 
-**Faiz Zanasghar** — [GitHub](https://github.com/faizzanasghar)
+**Faizan asghar** — [GitHub](https://github.com/faizzanasghar)
 
 ---
 
