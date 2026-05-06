@@ -29,9 +29,28 @@ from utils.stats import (
     compute_ci, flag_ci_anomalies, compute_zscore, flag_zscore_anomalies,
     compute_pvalue, flag_pvalue_anomalies, normality_test, fit_poisson,
     combined_anomaly_flag, monthly_stats, anomaly_frequency,
+    get_descriptive_stats, compute_skew_kurt, get_ci_table,
+    classify_predicted_anomaly
 )
-from utils.models import train_model, get_most_extreme_year
+from utils.models import (
+    train_model, get_most_extreme_year, 
+    train_next_day_model, predict_next_day
+)
+from utils.weather_api import fetch_realtime_weather
 import streamlit.components.v1 as components
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def load_lottieurl(url: str):
+    """Safely load a Lottie animation from a URL."""
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except Exception:
+        return None
+
 
 # ── Page config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -476,6 +495,7 @@ def render_sidebar(df: pd.DataFrame) -> dict:
                 "📊 Statistical Analysis",
                 "🎲 Probability Analysis",
                 "🤖 Prediction Engine",
+                "🔮 Live Predictor",
                 "⚠️ Anomaly Dashboard",
                 "🗺️ Map Visualization",
                 "💡 Insights",
@@ -591,17 +611,9 @@ def page_home(df: pd.DataFrame, opts: dict):
         st.markdown('<div class="page-title">🌦️ Pakistan Weather Anomaly Detection</div>', unsafe_allow_html=True)
         st.markdown('<div class="page-subtitle">AI-POWERED ANALYSIS · 25 YEARS OF METEOROLOGICAL DATA · 2000–2024</div>', unsafe_allow_html=True)
     with col_l:
-        # Load a 3D-style Lottie animation
-        lottie_url = "https://lottie.host/7e0e7a2b-8a8b-4c5e-8f2a-8b8b8b8b8b8b/xxxx.json" # Placeholder
-        # Using a reliable weather animation from LottieFiles
-        lottie_weather = "https://assets5.lottiefiles.com/packages/lf20_kljhtubl.json"
-        def load_lottieurl(url: str):
-            r = requests.get(url)
-            if r.status_code != 200: return None
-            return r.json()
-        lottie_json = load_lottieurl(lottie_weather)
-        if lottie_json:
-            st_lottie(lottie_json, height=120, key="weather_lottie")
+        lottie_weather = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_kljhtubl.json")
+        if lottie_weather:
+            st_lottie(lottie_weather, height=120, key="weather_lottie")
 
     fdf = filter_data(df, opts["cities"], opts["year_range"], opts["seasons"],
                       opts["rainfall_types"], opts["wind_types"], opts["temp_range"])
@@ -854,7 +866,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
 
 def page_statistical(df: pd.DataFrame, opts: dict):
     st.markdown('<div class="page-title">📊 Statistical Analysis</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-subtitle">Confidence intervals, mean/std deviation, and CI-based anomaly flagging</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-subtitle">Deep statistical profiling: Descriptive stats, Confidence Intervals, Skewness, and Regional Variance</div>', unsafe_allow_html=True)
 
     fdf = filter_data(df, opts["cities"], opts["year_range"], opts["seasons"],
                       opts["rainfall_types"], opts["wind_types"], opts["temp_range"])
@@ -866,45 +878,59 @@ def page_statistical(df: pd.DataFrame, opts: dict):
     col_stat = st.selectbox("Variable to analyse", ["tavg", "tmin", "tmax", "prcp", "humidity", "wind_speed"], key="stat_col")
     ci_conf = opts["stat_confidence"]
 
-    # ── Summary stats table ──
-    st.markdown('<div class="section-title">Descriptive Statistics by City</div>', unsafe_allow_html=True)
-    rows = []
-    for city in fdf["city"].unique():
-        s = fdf[fdf["city"] == city][col_stat].dropna()
-        ci = compute_ci(s, ci_conf)
-        if ci:
-            rows.append({
-                "City": city, "N": ci["n"],
-                "Mean": round(ci["mean"], 2),
-                "Std Dev": round(ci["std"], 2),
-                f"CI Lower ({int(ci_conf*100)}%)": round(ci["ci_lower"], 2),
-                f"CI Upper ({int(ci_conf*100)}%)": round(ci["ci_upper"], 2),
-                "Min": round(s.min(), 2),
-                "Max": round(s.max(), 2),
-            })
+    # ── Table 1: Descriptive Statistics ──
+    st.markdown('<div class="section-title">Table 1: Descriptive Statistics by City</div>', unsafe_allow_html=True)
+    desc_stats = get_descriptive_stats(fdf, col_stat)
+    st.dataframe(desc_stats.style.format(precision=2), width="stretch", hide_index=True)
 
-    if rows:
-        stats_df = pd.DataFrame(rows)
-        st.dataframe(stats_df.style.format(precision=2)
-                     .highlight_max(subset=["Max"], color="#2d1b1b")
-                     .highlight_min(subset=["Min"], color="#1b2d1b"),
-                     width="stretch", hide_index=True)
+    # ── Table 2: 95% Confidence Intervals ──
+    st.markdown(f'<div class="section-title">Table 2: {int(ci_conf*100)}% Confidence Intervals for {col_stat.upper()}</div>', unsafe_allow_html=True)
+    ci_table = get_ci_table(fdf, col_stat, ci_conf)
+    st.dataframe(ci_table.style.format(precision=3), width="stretch", hide_index=True)
 
-    # ── CI Overlay ──
-    st.markdown('<div class="section-title">CI Overlay on Monthly Averages</div>', unsafe_allow_html=True)
-    city_sel = st.selectbox("Select city for CI plot", fdf["city"].unique(), key="ci_city")
+    # ── Violin Plot: Regional Variance ──
+    st.markdown('<div class="section-title">Variance and Regional Variation (Violin Plot)</div>', unsafe_allow_html=True)
+    fig_v = px.violin(fdf, x="city", y=col_stat, color="city", box=True, points="all",
+                      color_discrete_sequence=CITY_PALETTE,
+                      title=f"Regional Distribution and Variance of {col_stat.upper()}")
+    apply_theme(fig_v, 450)
+    st.plotly_chart(fig_v, width="stretch")
+
+    # ── Distribution with KDE & Skewness ──
+    st.markdown('<div class="section-title">Probability Density and Skewness</div>', unsafe_allow_html=True)
+    city_sel_dist = st.selectbox("Select city for Density Analysis", fdf["city"].unique(), key="stat_dist_city")
+    city_series = fdf[fdf["city"] == city_sel_dist][col_stat].dropna()
+    
+    sk_info = compute_skew_kurt(city_series)
+    
+    col_l, col_r = st.columns([3, 1])
+    with col_l:
+        # Histogram + KDE
+        import plotly.figure_factory as ff
+        fig_kde = ff.create_distplot([city_series.values], [city_sel_dist], 
+                                     show_hist=True, show_rug=False,
+                                     colors=[PRIMARY_COLOR])
+        fig_kde.update_layout(title=f"{city_sel_dist}: {col_stat.upper()} Density & KDE", **PLOTLY_THEME, height=400)
+        st.plotly_chart(fig_kde, width="stretch")
+    
+    with col_r:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.metric("Skewness", sk_info["skew"])
+        st.metric("Kurtosis", sk_info["kurt"])
+        badge = '<span class="normal-badge">Normal Dist</span>' if abs(sk_info["skew"]) < 0.5 else '<span class="anomaly-badge">Skewed Dist</span>'
+        st.markdown(badge, unsafe_allow_html=True)
+
+    # ── CI Overlay on Monthly Averages ──
+    st.markdown('<div class="section-title">Monthly Mean ± CI Overlay</div>', unsafe_allow_html=True)
+    city_sel = st.selectbox("Select city for CI Trend", fdf["city"].unique(), key="ci_city")
     city_df = fdf[fdf["city"] == city_sel].copy()
 
     monthly = city_df.groupby("month")[col_stat].agg(["mean","std","count"]).reset_index()
-    monthly["se"] = monthly["std"] / np.sqrt(monthly["count"])
+    monthly["se"] = monthly["std"] / np.sqrt(monthly["count"].clip(1))
     from scipy.stats import t as t_dist
-    t_val = t_dist.ppf((1 + ci_conf) / 2, df=monthly["count"] - 1)
+    t_val = t_dist.ppf((1 + ci_conf) / 2, df=monthly["count"].clip(1) - 1)
     monthly["ci_upper"] = monthly["mean"] + t_val * monthly["se"]
     monthly["ci_lower"] = monthly["mean"] - t_val * monthly["se"]
-
-    # Compute anomalies
-    ci_flags = flag_ci_anomalies(city_df, col_stat, ci_conf)
-    city_df["ci_anomaly"] = ci_flags
 
     fig = go.Figure()
     if opts["show_ci"]:
@@ -922,56 +948,14 @@ def page_statistical(df: pd.DataFrame, opts: dict):
         line=dict(color=PRIMARY_COLOR, width=2.5),
         marker=dict(size=7),
     ))
-
-    if opts["show_anomalies"]:
-        anom = city_df[city_df["ci_anomaly"]]
-        if not anom.empty:
-            anom_monthly = anom.groupby("month")[col_stat].mean().reset_index()
-            fig.add_trace(go.Scatter(
-                x=anom_monthly["month"], y=anom_monthly[col_stat],
-                mode="markers", name="Anomaly (CI)",
-                marker=dict(color=ANOMALY_COLOR, size=11, symbol="x",
-                            line=dict(width=2, color=ANOMALY_COLOR)),
-            ))
-
+    
     fig.update_layout(
         title=f"{city_sel}: {col_stat.upper()} Monthly Mean ± {int(ci_conf*100)}% CI",
         xaxis=dict(title="Month", tickvals=list(range(1,13)),
                    ticktext=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]),
-        yaxis_title=col_stat, **PLOTLY_THEME, height=420,
+        yaxis_title=col_stat, **PLOTLY_THEME, height=400,
     )
     st.plotly_chart(fig, width="stretch")
-
-    # ── Anomaly count ──
-    n_anom = int(city_df["ci_anomaly"].sum())
-    pct = 100 * n_anom / max(len(city_df), 1)
-    col1, col2 = st.columns(2)
-    col1.metric("CI Anomalies Detected", f"{n_anom}", f"{pct:.1f}% of records")
-    col2.metric("CI Confidence", f"{int(ci_conf*100)}%", "Two-tailed")
-
-    # ── Annual CI band ──
-    st.markdown('<div class="section-title">Annual Trend with CI Band</div>', unsafe_allow_html=True)
-    yearly = city_df.groupby("year")[col_stat].agg(["mean","std","count"]).reset_index()
-    yearly["se"] = yearly["std"] / np.sqrt(yearly["count"])
-    yearly["upper"] = yearly["mean"] + 1.96 * yearly["se"]
-    yearly["lower"] = yearly["mean"] - 1.96 * yearly["se"]
-
-    fig2 = go.Figure()
-    if opts["show_ci"]:
-        fig2.add_trace(go.Scatter(
-            x=list(yearly["year"]) + list(yearly["year"])[::-1],
-            y=list(yearly["upper"]) + list(yearly["lower"])[::-1],
-            fill="toself", fillcolor="rgba(88,166,255,0.15)",
-            line=dict(color="rgba(0,0,0,0)"), name="95% CI",
-        ))
-    fig2.add_trace(go.Scatter(
-        x=yearly["year"], y=yearly["mean"], mode="lines+markers",
-        name="Annual Mean", line=dict(color=PRIMARY_COLOR, width=2.5),
-    ))
-    fig2.update_layout(title=f"{city_sel}: Annual {col_stat.upper()} Trend",
-                       xaxis_title="Year", yaxis_title=col_stat,
-                       **PLOTLY_THEME, height=380)
-    st.plotly_chart(fig2, width="stretch")
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -1133,8 +1117,29 @@ def page_probability(df: pd.DataFrame, opts: dict):
         c2.metric("KS Statistic", f"{pois_result['ks_stat']:.4f}")
         c3.metric("KS p-value", f"{pois_result['ks_p']:.4f}")
 
-    # ── Tab 4: Rare Events ──
+    # ── Tab 4: Extreme Precipitation ──
     with tabs[3]:
+        st.markdown('<div class="section-title">Extreme Precipitation Skewness</div>', unsafe_allow_html=True)
+        city_ext = st.selectbox("Select City for Extremes", fdf["city"].unique(), key="ext_city")
+        rain_data = fdf[(fdf["city"] == city_ext) & (fdf["prcp"] > 0)]["prcp"]
+        
+        if not rain_data.empty:
+            ext_skew = compute_skew_kurt(rain_data)
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                fig_ext = px.histogram(rain_data, nbins=50, title=f"{city_ext}: Rainy Day Distribution (Tail Analysis)",
+                                      color_discrete_sequence=[ANOMALY_COLOR], opacity=0.7)
+                apply_theme(fig_ext, 360)
+                st.plotly_chart(fig_ext, width="stretch")
+            
+            with col2:
+                st.markdown("<br><br>", unsafe_allow_html=True)
+                st.metric("Rain Skewness", ext_skew["skew"])
+                st.info("High positive skewness (>1) indicates a long tail of extreme rainfall events.")
+
+        # ── Rare Events Table ──
+        st.markdown('<div class="section-title">Statistically Rare Events (p < α)</div>', unsafe_allow_html=True)
         col_rare = st.selectbox("Variable", ["tavg", "prcp", "humidity", "wind_speed"], key="rare_var")
         alpha = st.slider("Significance Level (α)", 0.01, 0.10, 0.05, 0.01, key="alpha_sl")
 
@@ -1144,13 +1149,11 @@ def page_probability(df: pd.DataFrame, opts: dict):
 
         rare_events = fdf[fdf["p_flag"]].sort_values("pvalue").head(200)
 
-        st.metric("Rare Events Detected", f"{p_flags.sum():,}", f"α = {alpha}")
-
         fig = px.scatter(rare_events.sample(min(500, len(rare_events)), random_state=42),
                          x="date", y=col_rare, color="city",
                          color_discrete_sequence=CITY_PALETTE,
                          size="pvalue",
-                         title=f"Statistically Rare Events (p < {alpha})",
+                         title=f"Rare Events Timeline",
                          labels={col_rare: col_rare, "date": "Date"})
         apply_theme(fig, 400)
         st.plotly_chart(fig, width="stretch")
@@ -1673,12 +1676,277 @@ def page_insights(df: pd.DataFrame, opts: dict):
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  PAGE 9 · LIVE PREDICTOR                                                ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+def page_live_predictor(df: pd.DataFrame, opts: dict):
+    st.markdown('<div class="page-title">🔮 Live Next-Day Predictor</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-subtitle">Interactive forecasting: Input current conditions to predict tomorrow\'s temperature</div>', unsafe_allow_html=True)
+
+    col_input, col_viz = st.columns([1, 1.2])
+
+    with col_input:
+        st.markdown('<div class="section-title">Current Conditions</div>', unsafe_allow_html=True)
+        
+        with st.container():
+            st.markdown("""
+            <style>
+            .stForm {
+                background: rgba(255,255,255,0.03) !important;
+                backdrop-filter: blur(10px);
+                border-radius: 15px;
+                padding: 20px;
+                border: 1px solid rgba(56,189,248,0.1) !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            with st.form("predictor_form"):
+                city = st.selectbox("Select City", sorted(df["city"].unique()))
+                
+                # Fetch button outside the form usually, but we can do a trick or just use it as part of the page
+                # For simplicity, we'll put an 'Auto-fill' checkbox or handle it via session state
+                
+                c1, c2 = st.columns(2)
+                
+                # Use session state for default values
+                if f"live_{city}" in st.session_state:
+                    live_data = st.session_state[f"live_{city}"]
+                else:
+                    live_data = {}
+
+                tavg = c1.number_input("Today's Avg Temp (°C)", value=float(live_data.get("tavg", 25.0)), step=0.5)
+                humid = c2.number_input("Humidity (%)", value=float(live_data.get("humidity", 50.0)), min_value=0.0, max_value=100.0)
+                
+                c3, c4 = st.columns(2)
+                press = c3.number_input("Pressure (hPa)", value=float(live_data.get("pressure", 1010.0)), step=1.0)
+                wind = c4.number_input("Wind Speed (m/s)", value=float(live_data.get("wind_speed", 5.0)), step=0.5)
+                
+                c5, c6 = st.columns(2)
+                cloud = c5.slider("Cloud Cover (%)", 0, 100, int(live_data.get("cloud_cover", 20)))
+                sun = c6.slider("Sunshine Hours", 0.0, 14.0, 8.0)
+                
+                model_choice = st.selectbox("Forecast Model", ["Random Forest", "Gradient Boosting", "Ridge Regression"])
+                
+                submit = st.form_submit_button("✨ Generate Forecast", use_container_width=True)
+
+        # Separate button for live fetching
+        if st.button("🌍 Fetch Real-Time Data for " + city, use_container_width=True):
+            coords = get_city_coords(df)
+            row = coords[coords["city"] == city]
+            if not row.empty:
+                lat, lon = row.iloc[0]["latitude"], row.iloc[0]["longitude"]
+                with st.spinner(f"Connecting to Open-Meteo for {city}..."):
+                    live = fetch_realtime_weather(lat, lon)
+                    if "error" in live:
+                        st.error(live["error"])
+                    else:
+                        st.session_state[f"live_{city}"] = live
+                        st.success(f"Real-time data fetched for {city}!")
+                        st.rerun()
+
+    if submit:
+        # Prepare input dict
+        from datetime import datetime
+        today = datetime.now()
+        input_data = {
+            "month": today.month,
+            "day_of_year": today.timetuple().tm_yday,
+            "tavg": tavg,
+            "humidity": humid,
+            "pressure": press,
+            "wind_speed": wind,
+            "cloud_cover": cloud,
+            "sunshine_hours": sun
+        }
+        
+        with st.spinner("AI is analyzing patterns..."):
+            # Filter data for the specific city to make the model more localized if possible
+            city_df = df[df["city"] == city]
+            if len(city_df) < 50:
+                city_df = df # Fallback to all data if city data is sparse
+                
+            model_res = train_next_day_model(city_df, target="tavg", model_type=model_choice)
+            
+            if "error" in model_res:
+                st.error(f"Prediction Error: {model_res['error']}")
+            else:
+                pred_res = predict_next_day(model_res, input_data)
+                
+                with col_viz:
+                    st.markdown('<div class="section-title">Prediction Result</div>', unsafe_allow_html=True)
+                    
+                    # Big metric display
+                    st.markdown(f"""
+                    <div style='background:rgba(56,189,248,0.05); border:1px solid #38bdf8; border-radius:20px; padding:30px; text-align:center; margin-bottom:20px'>
+                        <div style='font-size:14px; color:#8B949E; text-transform:uppercase; letter-spacing:2px'>Predicted Temperature Tomorrow</div>
+                        <div style='font-size:64px; font-weight:800; color:#38bdf8; margin:10px 0'>{pred_res['prediction']}°C</div>
+                        <div style='font-size:16px; color:#34d399'>Expected Range: {pred_res['ci_lower']}°C – {pred_res['ci_upper']}°C</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Model confidence plot
+                    fig = go.Figure(go.Indicator(
+                        mode = "gauge+number",
+                        value = model_res["metrics"]["R²"] * 100,
+                        title = {'text': "Model Confidence (R² %)"},
+                        gauge = {
+                            'axis': {'range': [0, 100], 'tickcolor': "#38bdf8"},
+                            'bar': {'color': "#38bdf8"},
+                            'bgcolor': "rgba(0,0,0,0)",
+                            'borderwidth': 2,
+                            'bordercolor': "rgba(56,189,248,0.2)",
+                            'steps': [
+                                {'range': [0, 50], 'color': 'rgba(248,113,113,0.1)'},
+                                {'range': [50, 80], 'color': 'rgba(251,191,36,0.1)'},
+                                {'range': [80, 100], 'color': 'rgba(52,211,153,0.1)'}
+                            ],
+                        }
+                    ))
+                    apply_theme(fig, 300)
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.info(f"💡 Based on {model_res['n_train'] + model_res['n_test']} historical records for {city if len(df[df['city']==city]) >= 50 else 'all cities'}.")
+
+                    # ─── ANOMALY CLASSIFICATION ───────────────────────────────────────────
+                    from datetime import datetime
+                    curr_month = datetime.now().month
+                    anomaly_result = classify_predicted_anomaly(
+                        pred_res["prediction"], city_df, curr_month
+                    )
+
+                    verdict = anomaly_result["verdict"]
+                    severity = anomaly_result["severity"]
+
+                    # Color map
+                    verdict_config = {
+                        "Normal":           {"color": "#34d399", "bg": "rgba(52,211,153,0.08)", "border": "#34d399", "icon": "✅"},
+                        "Marginal Anomaly": {"color": "#fbbf24", "bg": "rgba(251,191,36,0.08)",  "border": "#fbbf24", "icon": "⚠️"},
+                        "Warm Anomaly":     {"color": "#fb923c", "bg": "rgba(251,146,60,0.08)",  "border": "#fb923c", "icon": "🔥"},
+                        "Cold Anomaly":     {"color": "#60a5fa", "bg": "rgba(96,165,250,0.08)",  "border": "#60a5fa", "icon": "💧"},
+                        "Extreme Heat":     {"color": "#ef4444", "bg": "rgba(239,68,68,0.12)",   "border": "#ef4444", "icon": "🔴"},
+                        "Extreme Cold":     {"color": "#a78bfa", "bg": "rgba(167,139,250,0.12)", "border": "#a78bfa", "icon": "🟣"},
+                    }
+                    cfg = verdict_config.get(verdict, verdict_config["Normal"])
+
+                    st.markdown(f"""
+                    <div style='background:{cfg['bg']}; border:2px solid {cfg['border']};
+                                border-radius:16px; padding:24px; margin:16px 0;'>
+                        <div style='display:flex; align-items:center; gap:12px; margin-bottom:12px;'>
+                            <span style='font-size:32px'>{cfg['icon']}</span>
+                            <div>
+                                <div style='font-size:11px; color:#8B949E; text-transform:uppercase; letter-spacing:2px;'>Anomaly Verdict</div>
+                                <div style='font-size:24px; font-weight:800; color:{cfg['color']};'>{verdict}</div>
+                            </div>
+                            <div style='margin-left:auto; text-align:right;'>
+                                <div style='font-size:11px; color:#8B949E;'>Severity Score</div>
+                                <div style='font-size:28px; font-weight:800; color:{cfg['color']};'>{severity}<span style='font-size:14px'>/100</span></div>
+                            </div>
+                        </div>
+                        <div style='display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:16px;'>
+                            <div style='background:rgba(255,255,255,0.03); border-radius:10px; padding:12px; text-align:center;'>
+                                <div style='font-size:11px; color:#8B949E;'>Z-Score</div>
+                                <div style='font-size:20px; font-weight:700; color:{cfg['color']};'>{anomaly_result['zscore']:+.2f}σ</div>
+                            </div>
+                            <div style='background:rgba(255,255,255,0.03); border-radius:10px; padding:12px; text-align:center;'>
+                                <div style='font-size:11px; color:#8B949E;'>p-value</div>
+                                <div style='font-size:20px; font-weight:700; color:{cfg['color']};'>{anomaly_result['pvalue']:.4f}</div>
+                            </div>
+                            <div style='background:rgba(255,255,255,0.03); border-radius:10px; padding:12px; text-align:center;'>
+                                <div style='font-size:11px; color:#8B949E;'>Historical Mean</div>
+                                <div style='font-size:20px; font-weight:700; color:#C9D1D9;'>{anomaly_result['hist_mean']}°C</div>
+                            </div>
+                        </div>
+                        <div style='background:rgba(255,255,255,0.02); border-radius:10px; padding:14px;
+                                    font-size:13px; color:#8B949E; line-height:1.6;'>
+                            {anomaly_result['explanation']}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Historical distribution with predicted value overlay
+                    month_hist = city_df[city_df["month"] == curr_month]["tavg"].dropna()
+                    if len(month_hist) > 0:
+                        st.markdown('<div class="section-title">Predicted vs Historical Distribution</div>', unsafe_allow_html=True)
+                        fig_hist = go.Figure()
+                        fig_hist.add_trace(go.Histogram(
+                            x=month_hist, nbinsx=30, name="Historical",
+                            marker_color=PRIMARY_COLOR, opacity=0.6, histnorm="probability density"
+                        ))
+                        # Normal fit
+                        import numpy as np
+                        x_range = np.linspace(month_hist.min(), month_hist.max(), 200)
+                        mu, sigma = month_hist.mean(), month_hist.std()
+                        from scipy import stats as sp_stats
+                        fig_hist.add_trace(go.Scatter(
+                            x=x_range, y=sp_stats.norm.pdf(x_range, mu, sigma),
+                            mode="lines", name="Normal Fit",
+                            line=dict(color="#38bdf8", width=2, dash="dot")
+                        ))
+                        # CI band
+                        fig_hist.add_vrect(
+                            x0=anomaly_result["ci_lower"], x1=anomaly_result["ci_upper"],
+                            fillcolor="rgba(52,211,153,0.08)", line_width=0,
+                            annotation_text="95% CI", annotation_position="top left"
+                        )
+                        # Predicted value
+                        fig_hist.add_vline(
+                            x=pred_res["prediction"], line_color=cfg["color"],
+                            line_width=3, line_dash="solid",
+                            annotation_text=f"Predicted: {pred_res['prediction']}°C",
+                            annotation_font_color=cfg["color"]
+                        )
+                        # Historical mean
+                        fig_hist.add_vline(
+                            x=anomaly_result["hist_mean"], line_color="#8B949E",
+                            line_width=1.5, line_dash="dash",
+                            annotation_text=f"Hist. Mean: {anomaly_result['hist_mean']}°C",
+                            annotation_font_color="#8B949E"
+                        )
+                        import calendar
+                        month_name = calendar.month_abbr[curr_month]
+                        fig_hist.update_layout(
+                            title=f"{city}: {month_name} Temperature Distribution vs Prediction",
+                            xaxis_title="Temperature (°C)", yaxis_title="Density",
+                            **PLOTLY_THEME, height=320
+                        )
+                        st.plotly_chart(fig_hist, use_container_width=True)
+
+                    # Feature Importance
+                    if model_res.get("feature_importance"):
+                        st.markdown('<div class="section-title">Feature Importance</div>', unsafe_allow_html=True)
+                        imp_df = pd.DataFrame({
+                            "Feature": list(model_res["feature_importance"].keys()),
+                            "Importance": list(model_res["feature_importance"].values())
+                        }).sort_values("Importance", ascending=False)
+                        fig_imp = px.bar(imp_df, x="Importance", y="Feature", orientation="h",
+                                         color="Importance", color_continuous_scale="Blues")
+                        apply_theme(fig_imp, 300)
+                        fig_imp.update_coloraxes(showscale=False)
+                        st.plotly_chart(fig_imp, use_container_width=True)
+    else:
+        with col_viz:
+            st.markdown("<br><br><br>", unsafe_allow_html=True)
+            lottie_ai = load_lottieurl("https://assets9.lottiefiles.com/packages/lf20_7wwmupbm.json")
+            if lottie_ai:
+                st_lottie(lottie_ai, height=300, key="ai_lottie")
+            st.markdown("<div style='text-align:center; color:#8B949E'>Fill in the current weather data and click 'Generate Forecast' to see AI predictions.</div>", unsafe_allow_html=True)
+
+
+# ╔══════════════════════════════════════════════════════════════════════════╗
 # ║  MAIN                                                                   ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 def main():
     with st.spinner("Loading Pakistan weather data..."):
         df = get_data()
+    
+    # Data source indicator
+    source = df.get("_data_source", ["unknown"]).iloc[0]
+    if source == "real":
+        st.sidebar.success("✅ Real Dataset Loaded")
+    else:
+        st.sidebar.warning("⚠️ Using Synthetic Data (CSV not found)")
 
     opts = render_sidebar(df)
     page = opts["page"]
@@ -1688,6 +1956,7 @@ def main():
     elif page == "📊 Statistical Analysis": page_statistical(df, opts)
     elif page == "🎲 Probability Analysis": page_probability(df, opts)
     elif page == "🤖 Prediction Engine":    page_prediction(df, opts)
+    elif page == "🔮 Live Predictor":       page_live_predictor(df, opts)
     elif page == "⚠️ Anomaly Dashboard":    page_anomaly(df, opts)
     elif page == "🗺️ Map Visualization":    page_map(df, opts)
     elif page == "💡 Insights":             page_insights(df, opts)

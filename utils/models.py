@@ -12,9 +12,17 @@ warnings.filterwarnings("ignore")
 
 # ─── Feature Engineering ─────────────────────────────────────────────────────
 
-TEMP_FEATURES = [
+# Features for predicting the SAME day (Anomaly Detection)
+SAME_DAY_TEMP_FEATURES = [
     "month", "day_of_year", "humidity", "pressure",
     "cloud_cover", "wind_speed", "sunshine_hours",
+]
+
+# Features for predicting the NEXT day (Forecasting)
+NEXT_DAY_TEMP_FEATURES = [
+    "tavg", "humidity", "pressure", "cloud_cover", 
+    "wind_speed", "sunshine_hours", "month_sin", "month_cos", 
+    "day_sin", "day_cos"
 ]
 
 RAIN_FEATURES = [
@@ -23,14 +31,29 @@ RAIN_FEATURES = [
 ]
 
 
+def cyclical_encode(df: pd.DataFrame) -> pd.DataFrame:
+    """Encode month and day_of_year using sine/cosine transformations."""
+    df = df.copy()
+    df["month_sin"] = np.sin(2 * np.pi * df["month"] / 12)
+    df["month_cos"] = np.cos(2 * np.pi * df["month"] / 12)
+    
+    # Approx 365.25 days
+    df["day_sin"] = np.sin(2 * np.pi * df["day_of_year"] / 365.25)
+    df["day_cos"] = np.cos(2 * np.pi * df["day_of_year"] / 365.25)
+    return df
+
+
 def build_features(df: pd.DataFrame, feature_cols: list, target_col: str) -> tuple:
-    """Return (X, y) arrays dropping NaNs."""
+    """Return (X, y) arrays dropping NaNs and performing cyclical encoding."""
+    # Ensure cyclical features are present if requested
+    if any(c in feature_cols for c in ["month_sin", "day_sin"]):
+        df = cyclical_encode(df)
+
     cols = feature_cols + [target_col]
     available = [c for c in cols if c in df.columns]
     sub = df[available].dropna()
 
-    missing_features = [c for c in feature_cols if c not in df.columns]
-    usable_features = [c for c in feature_cols if c in df.columns]
+    usable_features = [c for c in feature_cols if c in sub.columns]
 
     X = sub[usable_features].values
     y = sub[target_col].values
@@ -44,7 +67,13 @@ MODEL_MAP = {
     "Linear Regression": LinearRegression(),
     "Ridge Regression": Ridge(alpha=1.0),
     "Random Forest": RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1),
-    "Gradient Boosting": GradientBoostingRegressor(n_estimators=100, random_state=42),
+    "Gradient Boosting": GradientBoostingRegressor(
+        n_estimators=150, 
+        learning_rate=0.05, 
+        max_depth=4, 
+        loss='huber', 
+        random_state=42
+    ),
 }
 
 
@@ -53,12 +82,16 @@ def train_model(
     target: str = "tavg",
     model_type: str = "Random Forest",
     test_size: float = 0.2,
+    is_next_day: bool = False
 ) -> dict:
     """
     Train a regression model to predict `target`.
     Returns a result dict with model, metrics, predictions, residuals.
     """
-    feature_cols = TEMP_FEATURES if target == "tavg" else RAIN_FEATURES
+    if is_next_day:
+        feature_cols = NEXT_DAY_TEMP_FEATURES if "tavg" in target else RAIN_FEATURES
+    else:
+        feature_cols = SAME_DAY_TEMP_FEATURES if target == "tavg" else RAIN_FEATURES
 
     X, y, idx, used_features = build_features(df, feature_cols, target)
 
@@ -121,6 +154,97 @@ def train_model(
         "y_pred_test": y_pred_test,
         "n_train": len(X_train),
         "n_test": len(X_test),
+        "scaler": scaler if "Regression" in model_type else None
+    }
+
+
+def train_next_day_model(df: pd.DataFrame, target: str = "tavg", model_type: str = "Random Forest") -> dict:
+    """
+    Train a model to predict tomorrow's target based on today's features.
+    """
+    ldf = df.sort_values(["city", "date"]).copy()
+    # Create target for next day: shift(-1) within each city
+    ldf["target_next_day"] = ldf.groupby("city")[target].shift(-1)
+    
+    # Drop the last record for each city since it has no 'next day' target
+    ldf = ldf.dropna(subset=["target_next_day"])
+    
+    # Use NEXT_DAY_TEMP_FEATURES
+    feature_cols = NEXT_DAY_TEMP_FEATURES if target == "tavg" else RAIN_FEATURES
+    
+    # Train using the standard pipeline but with the shifted target
+    result = train_model(ldf, target="target_next_day", model_type=model_type, is_next_day=True)
+    
+    if "error" not in result:
+        result["original_target"] = target
+        # result["features"] should already be used_features from train_model
+        
+    return result
+
+
+def predict_next_day(model_dict: dict, input_data: dict) -> dict:
+    """
+    Predict next day value based on a trained model dictionary and manual input data.
+    Enforces physical consistency constraints.
+    """
+    if "error" in model_dict:
+        return {"error": "Invalid model"}
+        
+    model = model_dict["model"]
+    features = model_dict["features"]
+    scaler = model_dict.get("scaler")
+    
+    # Encode input if month/day are provided
+    if "month" in input_data:
+        m = input_data["month"]
+        input_data["month_sin"] = np.sin(2 * np.pi * m / 12)
+        input_data["month_cos"] = np.cos(2 * np.pi * m / 12)
+    if "day_of_year" in input_data:
+        d = input_data["day_of_year"]
+        input_data["day_sin"] = np.sin(2 * np.pi * d / 365.25)
+        input_data["day_cos"] = np.cos(2 * np.pi * d / 365.25)
+
+    # Prepare input vector
+    input_row = []
+    for f in features:
+        if f not in input_data:
+            # Fallback for missing cyclical features if not already in input_data
+            if f == "month_sin": input_data[f] = np.sin(2 * np.pi * input_data.get("month", 1) / 12)
+            elif f == "month_cos": input_data[f] = np.cos(2 * np.pi * input_data.get("month", 1) / 12)
+            elif f == "day_sin": input_data[f] = np.sin(2 * np.pi * input_data.get("day_of_year", 1) / 365.25)
+            elif f == "day_cos": input_data[f] = np.cos(2 * np.pi * input_data.get("day_of_year", 1) / 365.25)
+            
+        val = input_data.get(f, 0.0)
+        input_row.append(val)
+        
+    X_input = np.array([input_row])
+    
+    if scaler:
+        X_input = scaler.transform(X_input)
+        
+    prediction = float(model.predict(X_input)[0])
+    
+    # ─── Physical Consistency Constraint ──────────────────────────────────────
+    # Avoid a 17-degree crash unless extreme pressure drops occur.
+    # We clip the prediction to not deviate more than 15% from today's Tavg
+    # unless pressure is very low (indicating a major storm).
+    today_tavg = input_data.get("tavg", prediction)
+    pressure = input_data.get("pressure", 1013)
+    
+    if pressure > 1000: # Normal range
+        max_diff = max(abs(today_tavg) * 0.15, 3.0) # At least 3 degrees allowed
+        prediction = np.clip(prediction, today_tavg - max_diff, today_tavg + max_diff)
+    
+    # Simple CI estimate based on RMSE
+    rmse = model_dict["metrics"]["RMSE"]
+    ci_lower = prediction - 1.96 * rmse
+    ci_upper = prediction + 1.96 * rmse
+    
+    return {
+        "prediction": round(prediction, 2),
+        "ci_lower": round(ci_lower, 2),
+        "ci_upper": round(ci_upper, 2),
+        "rmse": rmse
     }
 
 

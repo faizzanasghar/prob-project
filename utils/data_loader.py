@@ -7,30 +7,36 @@ DATA_PATH = "pakistan_weather_2000_2024.csv"
 @st.cache_data if False else lambda f: f  # placeholder for direct import
 def _noop(f): return f
 
-def load_data(path: str = DATA_PATH) -> pd.DataFrame:
+def load_data(path: str = None) -> pd.DataFrame:
     """Load and preprocess the Pakistan weather dataset."""
+    if path is None:
+        # Try to find the CSV relative to this file
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base_dir, DATA_PATH)
+    
     if not os.path.exists(path):
         # Generate synthetic data matching the schema for demo purposes
         df = _generate_synthetic_data()
+        df["_data_source"] = "synthetic"
     else:
         df = pd.read_csv(path, parse_dates=["date"])
+        df["_data_source"] = "real"
         # Validate the loaded data
         _validate_data(df)
         # Map real columns to internal names
+        # Map real CSV column names to internal names used by the app
         rename_map = {
             "prcp(Precipitation)": "prcp",
             "wspd(Wind Speed)": "wind_speed",
-            "tavg(Average Temperature)": "tavg",
-            "tmin(Minimum Temperature)": "tmin",
-            "tmax(Maximum Temperature)": "tmax",
-            "hmdt(Humidity)": "humidity",
-            "pres(Pressure)": "pressure",
-            "wdir(Wind Direction)": "wind_deg",
-            "wgust(Wind Gust)": "wind_gust",
-            "cldc(Cloud Cover)": "cloud_cover",
-            "snsh(Sunshine Hours)": "sunshine_hours",
         }
         df = df.rename(columns=rename_map)
+        
+        # Normalize categorical columns to match sidebar filter options
+        if "rainfall_intensity" in df.columns:
+            df["rainfall_intensity"] = df["rainfall_intensity"].str.capitalize()
+        if "wind_category" in df.columns:
+            wcat_map = {"calm": "Calm", "breezy": "Breeze", "windy": "Moderate", "strong": "Strong", "storm": "Storm"}
+            df["wind_category"] = df["wind_category"].str.lower().map(wcat_map).fillna("Moderate")
 
     df = _preprocess(df)
     return df
@@ -52,19 +58,21 @@ def _validate_data(df: pd.DataFrame) -> None:
 
     # Check for reasonable latitude/longitude ranges for Pakistan
     if 'latitude' in df.columns:
-        if not (23 <= df['latitude'].min() <= 37 and 23 <= df['latitude'].max() <= 37):
-            raise ValueError("Latitude values are outside expected range for Pakistan")
+        lat_min, lat_max = df['latitude'].min(), df['latitude'].max()
+        if not (23 <= lat_min and lat_max <= 37):
+            raise ValueError(f"Latitude values outside Pakistan range: {lat_min:.2f} – {lat_max:.2f}")
 
     if 'longitude' in df.columns:
-        if not (60 <= df['longitude'].min() <= 78 and 60 <= df['longitude'].max() <= 78):
-            raise ValueError("Longitude values are outside expected range for Pakistan")
+        lon_min, lon_max = df['longitude'].min(), df['longitude'].max()
+        if not (60 <= lon_min and lon_max <= 78):
+            raise ValueError(f"Longitude values outside Pakistan range: {lon_min:.2f} – {lon_max:.2f}")
 
     # Check temperature ranges
     temp_cols = ['tavg', 'tmin', 'tmax']
     for col in temp_cols:
         if col in df.columns:
-            if df[col].min() < -10 or df[col].max() > 60:
-                raise ValueError(f"Temperature values in {col} are outside reasonable range")
+            if df[col].min() < -25 or df[col].max() > 60:
+                raise ValueError(f"Temperature values in {col} are outside reasonable range ({df[col].min()} to {df[col].max()})")
 
 
 def _preprocess(df: pd.DataFrame) -> pd.DataFrame:

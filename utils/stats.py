@@ -154,6 +154,45 @@ def monthly_stats(df: pd.DataFrame, col: str) -> pd.DataFrame:
     return grp
 
 
+# ─── Descriptive Statistics ──────────────────────────────────────────────────
+
+def get_descriptive_stats(df: pd.DataFrame, col: str) -> pd.DataFrame:
+    """Return full descriptive stats (Table 1 style) grouped by city."""
+    stats_df = df.groupby("city")[col].describe().reset_index()
+    return stats_df
+
+
+def compute_skew_kurt(series: pd.Series) -> dict:
+    """Compute skewness and kurtosis."""
+    clean = series.dropna()
+    if len(clean) < 3:
+        return {"skew": 0.0, "kurt": 0.0}
+    return {
+        "skew": round(float(stats.skew(clean)), 3),
+        "kurt": round(float(stats.kurtosis(clean)), 3),
+    }
+
+
+def get_ci_table(df: pd.DataFrame, col: str, confidence: float = 0.95) -> pd.DataFrame:
+    """Return CI table (Table 2 style) with Mean and Standard Error."""
+    rows = []
+    for city in df["city"].unique():
+        s = df[df["city"] == city][col].dropna()
+        n = len(s)
+        if n < 2: continue
+        mean = s.mean()
+        se = stats.sem(s)
+        ci = stats.t.interval(confidence, df=n-1, loc=mean, scale=se)
+        rows.append({
+            "City": city,
+            "Mean": round(mean, 3),
+            "Std Error": round(se, 3),
+            f"CI Lower ({int(confidence*100)}%)": round(ci[0], 3),
+            f"CI Upper ({int(confidence*100)}%)": round(ci[1], 3),
+        })
+    return pd.DataFrame(rows)
+
+
 # ─── Anomaly Frequency ───────────────────────────────────────────────────────
 
 def anomaly_frequency(df: pd.DataFrame, anomaly_col: str = "is_anomaly") -> pd.DataFrame:
@@ -170,3 +209,82 @@ def anomaly_frequency(df: pd.DataFrame, anomaly_col: str = "is_anomaly") -> pd.D
     month_order = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
     cols = [m for m in month_order if m in pivot.columns]
     return pivot[cols]
+
+
+# ─── Predicted Anomaly Classifier ────────────────────────────────────────────
+
+def classify_predicted_anomaly(
+    predicted_temp: float,
+    city_df: pd.DataFrame,
+    month: int,
+    confidence: float = 0.95,
+) -> dict:
+    """
+    Classify whether a predicted temperature is anomalous relative to the
+    historical distribution for that city and month.
+
+    Returns a dict with:
+        verdict       : 'Normal' | 'Warm Anomaly' | 'Cold Anomaly' | 'Extreme Heat' | 'Extreme Cold'
+        severity      : 0-100 severity score
+        zscore        : z-score of prediction vs historical mean
+        pvalue        : two-tailed p-value
+        ci_lower/upper: historical 95% CI bounds
+        hist_mean     : historical monthly mean
+        hist_std      : historical monthly std
+        explanation   : human-readable explanation string
+    """
+    month_data = city_df[city_df["month"] == month]["tavg"].dropna()
+
+    if len(month_data) < 10:
+        return {"verdict": "Insufficient data", "severity": 0,
+                "explanation": "Not enough historical data for this month."}
+
+    hist_mean = float(month_data.mean())
+    hist_std  = float(month_data.std())
+    n = len(month_data)
+
+    if hist_std == 0:
+        return {"verdict": "Normal", "severity": 0, "explanation": "No variance in historical data."}
+
+    zscore = (predicted_temp - hist_mean) / hist_std
+    pvalue = float(2 * (1 - stats.norm.cdf(abs(zscore))))
+
+    se = stats.sem(month_data)
+    ci = stats.t.interval(confidence, df=n - 1, loc=hist_mean, scale=se)
+
+    severity = min(100, round(abs(zscore) / 3.0 * 100))
+
+    is_outside_ci = predicted_temp < ci[0] or predicted_temp > ci[1]
+    is_significant = pvalue < (1 - confidence)
+
+    if abs(zscore) >= 3.0:
+        verdict = "Extreme Heat" if zscore > 0 else "Extreme Cold"
+    elif abs(zscore) >= 2.0:
+        verdict = "Warm Anomaly" if zscore > 0 else "Cold Anomaly"
+    elif is_outside_ci and is_significant:
+        verdict = "Marginal Anomaly"
+    else:
+        verdict = "Normal"
+
+    direction = "above" if zscore > 0 else "below"
+    explanation = (
+        f"Predicted {predicted_temp:.1f}°C is {abs(zscore):.2f}σ {direction} the historical "
+        f"average for this month ({hist_mean:.1f}°C ± {hist_std:.1f}°C). "
+        f"Historical 95% CI: [{ci[0]:.1f}°C, {ci[1]:.1f}°C]. "
+        f"p-value = {pvalue:.4f} — "
+        f"{'Statistically significant anomaly.' if is_significant else 'Within normal range.'}"
+    )
+
+    return {
+        "verdict": verdict,
+        "severity": severity,
+        "zscore": round(zscore, 3),
+        "pvalue": round(pvalue, 4),
+        "ci_lower": round(ci[0], 2),
+        "ci_upper": round(ci[1], 2),
+        "hist_mean": round(hist_mean, 2),
+        "hist_std": round(hist_std, 2),
+        "n_samples": n,
+        "explanation": explanation,
+        "is_anomaly": is_outside_ci and is_significant,
+    }
