@@ -60,14 +60,16 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── 3D Splash Screen ────────────────────────────────────────────────────────
+# -- 3D Splash Screen (fully responsive) ------------------------------------
 def render_splash():
     splash_html = """
     <div id="splash-screen">
         <canvas id="three-canvas"></canvas>
         <div class="splash-content">
+            <div class="splash-icon">&#x26C8;&#xFE0F;</div>
             <div class="splash-title">WEATHER<span>INTELLIGENCE</span></div>
             <div class="splash-subtitle">Advanced Meteorological Computing</div>
+            <div class="splash-bar"><div class="splash-bar-fill"></div></div>
         </div>
     </div>
     <style>
@@ -75,6 +77,8 @@ def render_splash():
             position: fixed;
             top: 0; left: 0;
             width: 100vw; height: 100vh;
+            padding: env(safe-area-inset-top,0) env(safe-area-inset-right,0)
+                     env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
             background-color: #05070A;
             z-index: 999999;
             display: flex;
@@ -82,75 +86,102 @@ def render_splash():
             align-items: center;
             justify-content: center;
             pointer-events: none;
-            /* Pure CSS Fallback: Fade out and hide after 4 seconds */
-            animation: fadeOutSplash 1s forwards 3.5s;
+            overflow: hidden;
+            animation: fadeOutSplash 1s forwards 3.8s;
         }
         #three-canvas {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            opacity: 0.6;
+            opacity: 0.55;
         }
-        .splash-content { z-index: 2; text-align: center; }
+        .splash-content {
+            z-index: 2; text-align: center;
+            padding: 0 20px; width: 100%; max-width: 600px;
+        }
+        .splash-icon {
+            font-size: clamp(28px, 8vw, 52px);
+            margin-bottom: 10px; opacity: 0;
+            animation: fadeInText 1s forwards 0.3s;
+        }
         .splash-title {
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 42px;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            font-size: clamp(20px, 6.5vw, 48px);
             font-weight: 800;
             color: #FFFFFF;
-            letter-spacing: 8px;
+            letter-spacing: clamp(2px, 1.2vw, 8px);
             margin-bottom: 10px;
             opacity: 0;
             animation: fadeInText 1.5s forwards 0.5s;
+            line-height: 1.15;
+            word-break: break-word;
+            white-space: normal;
         }
         .splash-title span { color: #58A6FF; }
         .splash-subtitle {
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 11px;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            font-size: clamp(8px, 2vw, 11px);
             color: #8B949E;
-            letter-spacing: 4px;
+            letter-spacing: clamp(1px, 0.8vw, 4px);
             text-transform: uppercase;
             opacity: 0;
             animation: fadeInText 1.5s forwards 1.2s;
+            word-break: break-word;
         }
+        .splash-bar {
+            margin: 24px auto 0;
+            width: clamp(100px, 38vw, 260px);
+            height: 2px;
+            background: rgba(88,166,255,0.15);
+            border-radius: 2px; overflow: hidden;
+            opacity: 0; animation: fadeInText 0.5s forwards 1.5s;
+        }
+        .splash-bar-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            border-radius: 2px;
+            animation: barGrow 2.2s ease-out forwards 1.6s;
+        }
+        @keyframes barGrow   { from{width:0%} to{width:100%} }
         @keyframes fadeInText {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes fadeOutSplash {
             from { opacity: 1; visibility: visible; }
-            to { opacity: 0; visibility: hidden; }
+            to   { opacity: 0; visibility: hidden; }
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // Only run Three.js if it's the first time
-        if (!window.threeInitialized) {
-            const canvas = document.getElementById('three-canvas');
-            if (canvas) {
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+        (function() {
+            const canvas = document.getElementById("three-canvas");
+            if (!canvas || window.threeInitialized) return;
+            const isMobile = window.innerWidth < 768;
+            const N = isMobile ? 1200 : 3000;
+            const scene    = new THREE.Scene();
+            const camera   = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: !isMobile });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(N * 3);
+            for (let i = 0; i < N * 3; i++) { pos[i] = (Math.random() - 0.5) * 10; }
+            geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+            const mat  = new THREE.PointsMaterial({ size: 0.005, color: "#58A6FF", transparent: true, opacity: 0.5 });
+            const mesh = new THREE.Points(geo, mat);
+            scene.add(mesh); camera.position.z = 2;
+            function animate() { requestAnimationFrame(animate); mesh.rotation.y += 0.001; renderer.render(scene, camera); }
+            animate();
+            function onResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
-                
-                const particlesGeometry = new THREE.BufferGeometry();
-                const posArray = new Float32Array(3000 * 3);
-                for(let i=0; i < 3000 * 3; i++) { posArray[i] = (Math.random() - 0.5) * 10; }
-                particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-                
-                const material = new THREE.PointsMaterial({ size: 0.005, color: '#58A6FF', transparent: true, opacity: 0.5 });
-                const particlesMesh = new THREE.Points(particlesGeometry, material);
-                scene.add(particlesMesh);
-                camera.position.z = 2;
-                
-                function animate() {
-                    requestAnimationFrame(animate);
-                    particlesMesh.rotation.y += 0.001;
-                    renderer.render(scene, camera);
-                }
-                animate();
-                window.threeInitialized = true;
             }
-        }
+            window.addEventListener("resize",            onResize, { passive: true });
+            window.addEventListener("orientationchange", onResize, { passive: true });
+            window.threeInitialized = true;
+        })();
     </script>
     """
     st.markdown(splash_html, unsafe_allow_html=True)
