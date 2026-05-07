@@ -1662,7 +1662,7 @@ def page_map(df: pd.DataFrame, opts: dict):
     st.dataframe(display.drop(columns=["Lat","Lon"])
                  .sort_values("Anomaly %", ascending=False)
                  .style.format(precision=2)
-                 .background_gradient(subset=["Anomaly %"], cmap="Reds"),
+                 .bar(subset=["Anomaly %"], color=["#1a3a5c", "#f87171"], align="left"),
                  use_container_width=True, hide_index=True)
 
     # Choropleth-style bar
