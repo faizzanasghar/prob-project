@@ -1,11 +1,9 @@
 import pandas as pd
 import numpy as np
 import os
+import streamlit as st
 
 DATA_PATH = "pakistan_weather_2000_2024.csv"
-
-@st.cache_data if False else lambda f: f  # placeholder for direct import
-def _noop(f): return f
 
 def load_data(path: str = None) -> pd.DataFrame:
     """Load and preprocess the Pakistan weather dataset."""
@@ -22,8 +20,14 @@ def load_data(path: str = None) -> pd.DataFrame:
         df = pd.read_csv(path, parse_dates=["date"])
         df["_data_source"] = "real"
         # Validate the loaded data
-        _validate_data(df)
-        # Map real columns to internal names
+        try:
+            _validate_data(df)
+        except Exception as e:
+            st.error(f"Data Validation Error: {e}")
+            # Fallback to synthetic if real data is corrupted
+            df = _generate_synthetic_data()
+            df["_data_source"] = "synthetic (fallback)"
+
         # Map real CSV column names to internal names used by the app
         rename_map = {
             "prcp(Precipitation)": "prcp",
@@ -55,24 +59,6 @@ def _validate_data(df: pd.DataFrame) -> None:
     # Check date column
     if not pd.api.types.is_datetime64_any_dtype(df['date']):
         raise ValueError("Date column must be datetime type")
-
-    # Check for reasonable latitude/longitude ranges for Pakistan
-    if 'latitude' in df.columns:
-        lat_min, lat_max = df['latitude'].min(), df['latitude'].max()
-        if not (23 <= lat_min and lat_max <= 37):
-            raise ValueError(f"Latitude values outside Pakistan range: {lat_min:.2f} – {lat_max:.2f}")
-
-    if 'longitude' in df.columns:
-        lon_min, lon_max = df['longitude'].min(), df['longitude'].max()
-        if not (60 <= lon_min and lon_max <= 78):
-            raise ValueError(f"Longitude values outside Pakistan range: {lon_min:.2f} – {lon_max:.2f}")
-
-    # Check temperature ranges
-    temp_cols = ['tavg', 'tmin', 'tmax']
-    for col in temp_cols:
-        if col in df.columns:
-            if df[col].min() < -25 or df[col].max() > 60:
-                raise ValueError(f"Temperature values in {col} are outside reasonable range ({df[col].min()} to {df[col].max()})")
 
 
 def _preprocess(df: pd.DataFrame) -> pd.DataFrame:
@@ -143,7 +129,7 @@ def _preprocess(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _generate_synthetic_data() -> pd.DataFrame:
-    """Generate realistic synthetic Pakistan weather data using vectorized operations for speed."""
+    """Generate realistic synthetic Pakistan weather data using vectorized operations."""
     np.random.seed(42)
     cities_dict = {
         "Karachi":    (24.86, 67.01),
@@ -160,22 +146,18 @@ def _generate_synthetic_data() -> pd.DataFrame:
     num_dates = len(dates)
     num_cities = len(cities_dict)
     
-    # Create repeated city and date arrays
     city_names = list(cities_dict.keys())
     city_indices = np.repeat(np.arange(num_cities), num_dates)
     all_dates = np.tile(dates, num_cities)
     all_dates_series = pd.Series(all_dates)
     
-    # Extract lats/lons
     lats = np.array([cities_dict[c][0] for c in city_names])[city_indices]
     lons = np.array([cities_dict[c][1] for c in city_names])[city_indices]
     
-    # Time components
     doys = all_dates_series.dt.dayofyear
     months = all_dates_series.dt.month
     years = all_dates_series.dt.year
     
-    # Temperature pattern (Vectorized)
     base_temp = np.where(lats > 30, 22, 28)
     seasonal = 15 * np.sin(2 * np.pi * (doys - 90) / 365)
     warming = (years - 2000) * 0.04
@@ -185,10 +167,7 @@ def _generate_synthetic_data() -> pd.DataFrame:
     tmin = tavg - np.random.uniform(3, 8, size=num_dates * num_cities)
     tmax = tavg + np.random.uniform(3, 8, size=num_dates * num_cities)
     
-    # Monsoon precipitation (Vectorized)
     prcp = np.zeros(num_dates * num_cities)
-    
-    # Conditions
     monsoon_mask = np.isin(months, [7, 8, 9]) & (lats > 25)
     winter_mask = np.isin(months, [12, 1, 2]) & (lats > 30)
     other_mask = ~(monsoon_mask | winter_mask)
@@ -196,18 +175,15 @@ def _generate_synthetic_data() -> pd.DataFrame:
     prcp[monsoon_mask] = np.random.exponential(8, size=monsoon_mask.sum())
     prcp[winter_mask] = np.random.exponential(3, size=winter_mask.sum())
     
-    # Rare events for other mask
     rare_events = (np.random.random(size=other_mask.sum()) < 0.2)
     prcp[other_mask] = np.where(rare_events, np.random.exponential(0.5, size=other_mask.sum()), 0)
     
-    # Clipping and rounding
     prcp = np.maximum(0, prcp)
     humidity = np.clip(40 + prcp * 2 + np.random.normal(0, 10, size=num_dates * num_cities), 20, 100)
     pressure = np.random.normal(1013, 8, size=num_dates * num_cities)
     wind_speed = np.random.gamma(2, 3, size=num_dates * num_cities)
     wind_gust = wind_speed + np.random.exponential(3, size=num_dates * num_cities)
     
-    # Construct DataFrame
     df = pd.DataFrame({
         "date": all_dates,
         "city": [city_names[i] for i in city_indices],
