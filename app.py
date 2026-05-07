@@ -433,6 +433,139 @@ html, body, [data-testid="stAppViewContainer"],
 ::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.2); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(56,189,248,0.35); }
 footer { visibility: hidden !important; }
+
+/* ══════════════════════════════════════════════════
+   RESPONSIVE CSS — ALL SCREEN SIZES
+   ══════════════════════════════════════════════════ */
+
+/* ── Base overflow fixes ── */
+*, *::before, *::after { box-sizing: border-box; }
+.main .block-container {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    max-width: 100% !important;
+}
+img, video, iframe, canvas { max-width: 100% !important; }
+[data-testid="stDataFrame"]  { max-width: 100% !important; overflow-x: auto !important; }
+[data-testid="stPlotlyChart"] { max-width: 100% !important; }
+[data-testid="stTabs"] [role="tablist"] { flex-wrap: wrap !important; }
+
+/* ── Small desktop / large tablet  ≤ 1024px ── */
+@media (max-width: 1024px) {
+    .page-title                       { font-size: 2rem !important; }
+    .kpi-value                        { font-size: 1.7rem !important; }
+    [data-testid="stMetricValue"]     { font-size: 1.5rem !important; }
+    [data-testid="stTabs"] button     { font-size: 11px !important; padding: 6px 12px !important; }
+    .kpi-card                         { padding: 18px 20px !important; }
+}
+
+/* ── Tablet  ≤ 768px ── */
+@media (max-width: 768px) {
+    .page-title {
+        font-size: 1.6rem !important;
+        letter-spacing: -0.02em !important;
+    }
+    .page-subtitle {
+        font-size: 10px !important;
+        letter-spacing: 0.02em !important;
+        margin-bottom: 16px !important;
+    }
+    .section-title {
+        font-size: 0.9rem !important;
+        margin: 20px 0 12px !important;
+    }
+    .kpi-card {
+        padding: 14px 16px !important;
+        border-radius: 12px !important;
+        margin-bottom: 6px !important;
+    }
+    .kpi-value                        { font-size: 1.5rem !important; }
+    .kpi-label                        { font-size: 9px !important; letter-spacing: 0.12em !important; }
+    .kpi-sub                          { font-size: 10px !important; }
+    [data-testid="stMetric"]          { padding: 14px 16px !important; }
+    [data-testid="stMetricValue"]     { font-size: 1.4rem !important; }
+    [data-testid="stMetricLabel"]     { font-size: 10px !important; }
+    [data-testid="stTabs"] [role="tablist"] {
+        padding: 3px !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stTabs"] button {
+        font-size: 10px !important;
+        padding: 6px 10px !important;
+        border-radius: 6px !important;
+    }
+    .insight-card                     { font-size: 12px !important; padding: 12px 16px !important; }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label {
+        padding: 12px 14px !important;
+        font-size: 14px !important;
+        min-height: 44px !important;
+    }
+    .main .block-container {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        padding-top: 1rem !important;
+    }
+}
+
+/* ── Mobile  ≤ 480px ── */
+@media (max-width: 480px) {
+    .page-title {
+        font-size: 1.25rem !important;
+        letter-spacing: -0.01em !important;
+        line-height: 1.2 !important;
+    }
+    .page-subtitle {
+        font-size: 9px !important;
+        word-break: break-word !important;
+    }
+    .section-title {
+        font-size: 0.82rem !important;
+        margin: 14px 0 10px !important;
+    }
+    .kpi-card                         { padding: 12px 14px !important; border-radius: 10px !important; }
+    .kpi-value                        { font-size: 1.25rem !important; }
+    .kpi-label                        { font-size: 8px !important; letter-spacing: 0.08em !important; }
+    .kpi-sub                          { font-size: 9px !important; }
+    [data-testid="stMetric"]          { padding: 12px 14px !important; }
+    [data-testid="stMetricValue"]     { font-size: 1.2rem !important; }
+    [data-testid="stMetricLabel"]     { font-size: 9px !important; }
+    [data-testid="stTabs"] button     { font-size: 9px !important; padding: 5px 8px !important; }
+    .anomaly-badge, .normal-badge     { font-size: 10px !important; padding: 3px 8px !important; }
+    .insight-card                     { font-size: 11px !important; padding: 10px 12px !important; line-height: 1.6 !important; }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label {
+        padding: 13px 14px !important;
+        font-size: 15px !important;
+        min-height: 48px !important;
+    }
+    .main .block-container            { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+    /* iOS prevents auto-zoom on inputs (font-size must be ≥16px) */
+    input, select, textarea           { font-size: 16px !important; }
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTextInput"] input { font-size: 16px !important; }
+}
+
+/* ── Columns stack on small phones  ≤ 640px ── */
+@media (max-width: 640px) {
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+        min-width: 0 !important;
+        flex: 1 1 100% !important;
+    }
+    [data-testid="stSidebar"] {
+        min-width: 260px !important;
+        max-width: 85vw !important;
+    }
+}
+
+/* ── Touch devices — disable hover lift animations ── */
+@media (hover: none) and (pointer: coarse) {
+    .kpi-card:hover                   { transform: none !important; box-shadow: none !important; }
+    [data-testid="stMetric"]:hover    { transform: none !important; box-shadow: none !important; }
+    [data-testid="stPlotlyChart"]:hover { box-shadow: none !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -565,7 +698,8 @@ def apply_theme(fig, height=420):
     fig.update_layout(
         **PLOTLY_THEME,
         height=height,
-        margin=dict(l=48, r=24, t=48, b=40),
+        autosize=True,
+        margin=dict(l=36, r=16, t=44, b=36),
         legend=dict(
             bgcolor="rgba(3,8,15,0.7)",
             bordercolor="rgba(56,189,248,0.15)",
@@ -589,6 +723,7 @@ def apply_theme(fig, height=420):
         ),
     )
     return fig
+
 
 
 def kpi_card(label, value, sub=""):
@@ -652,7 +787,7 @@ def page_home(df: pd.DataFrame, opts: dict):
                           labels={"tavg": "Avg Temp (°C)", "year": "Year", "city": "City"})
             fig.update_traces(line_width=2)
             apply_theme(fig, 360)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
     with col_r:
         st.markdown('<div class="section-title">Records by Season</div>', unsafe_allow_html=True)
@@ -663,7 +798,7 @@ def page_home(df: pd.DataFrame, opts: dict):
                           hole=0.55)
             fig2.update_traces(textinfo="percent+label", textfont_size=13)
             apply_theme(fig2, 360)
-            st.plotly_chart(fig2, width="stretch")
+            st.plotly_chart(fig2, use_container_width=True)
 
     # ── Bottom bar charts ──
     col_a, col_b = st.columns(2)
@@ -679,7 +814,7 @@ def page_home(df: pd.DataFrame, opts: dict):
                           labels={"prcp": "Avg Precip (mm)", "month_name": "Month"})
             apply_theme(fig3, 300)
             fig3.update_coloraxes(showscale=False)
-            st.plotly_chart(fig3, width="stretch")
+            st.plotly_chart(fig3, use_container_width=True)
 
     with col_b:
         st.markdown('<div class="section-title">Wind Category Frequency</div>', unsafe_allow_html=True)
@@ -691,11 +826,11 @@ def page_home(df: pd.DataFrame, opts: dict):
                           labels={"count": "Days", "category": "Wind Category"})
             apply_theme(fig4, 300)
             fig4.update_coloraxes(showscale=False)
-            st.plotly_chart(fig4, width="stretch")
+            st.plotly_chart(fig4, use_container_width=True)
 
     # ── Data preview ──
     with st.expander("📄 Raw Data Preview", expanded=False):
-        st.dataframe(fdf.head(200).style.format(precision=2), width="stretch", height=300)
+        st.dataframe(fdf.head(200).style.format(precision=2), use_container_width=True, height=300)
 
     st.markdown(f"""
     <div style='margin-top:24px; padding:16px; background:#1C2333; border-radius:8px; border:1px solid #30363D;'>
@@ -747,7 +882,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
             xaxis_title="Date", yaxis_title=col_ts,
             **PLOTLY_THEME, height=420, hovermode="x unified",
         )
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
         # Annual trend
         annual = fdf.groupby(["year", "city"])[col_ts].mean().reset_index()
@@ -756,7 +891,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
                        title=f"Annual Average {col_ts.upper()}")
         fig2.update_traces(mode="lines+markers", marker_size=5)
         apply_theme(fig2)
-        st.plotly_chart(fig2, width="stretch")
+        st.plotly_chart(fig2, use_container_width=True)
 
     # ── Tab 2: Distributions ──
     with tabs[1]:
@@ -777,7 +912,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
             )
         fig.update_layout(title=f"Distribution of {col_dist.upper()} per City",
                           **PLOTLY_THEME, height=500)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
         # Overall histogram
         fig_all = px.histogram(fdf, x=col_dist, color="city",
@@ -786,7 +921,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
                                title=f"Overall {col_dist.upper()} Distribution",
                                opacity=0.7)
         apply_theme(fig_all)
-        st.plotly_chart(fig_all, width="stretch")
+        st.plotly_chart(fig_all, use_container_width=True)
 
     # ── Tab 3: Boxplots ──
     with tabs[2]:
@@ -799,7 +934,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
                      title=f"{col_box.upper()} Boxplot by {group_by}",
                      points="outliers")
         apply_theme(fig)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
     # ── Tab 4: Heatmap ──
     with tabs[3]:
@@ -817,7 +952,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
             aspect="auto", text_auto=".1f",
         )
         fig.update_layout(**PLOTLY_THEME, height=380)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
     # ── Tab 5: Scatter ──
     with tabs[4]:
@@ -837,7 +972,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
                          opacity=0.6, title=title,
                          labels={xc: xc, yc: yc})
         apply_theme(fig, 450)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
     # ── Tab 6: 3D Relationship ──
     with tabs[5]:
@@ -857,7 +992,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
             ),
             **PLOTLY_THEME, height=600
         )
-        st.plotly_chart(fig_3d, width="stretch")
+        st.plotly_chart(fig_3d, use_container_width=True)
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -881,12 +1016,12 @@ def page_statistical(df: pd.DataFrame, opts: dict):
     # ── Table 1: Descriptive Statistics ──
     st.markdown('<div class="section-title">Table 1: Descriptive Statistics by City</div>', unsafe_allow_html=True)
     desc_stats = get_descriptive_stats(fdf, col_stat)
-    st.dataframe(desc_stats.style.format(precision=2), width="stretch", hide_index=True)
+    st.dataframe(desc_stats.style.format(precision=2), use_container_width=True, hide_index=True)
 
     # ── Table 2: 95% Confidence Intervals ──
     st.markdown(f'<div class="section-title">Table 2: {int(ci_conf*100)}% Confidence Intervals for {col_stat.upper()}</div>', unsafe_allow_html=True)
     ci_table = get_ci_table(fdf, col_stat, ci_conf)
-    st.dataframe(ci_table.style.format(precision=3), width="stretch", hide_index=True)
+    st.dataframe(ci_table.style.format(precision=3), use_container_width=True, hide_index=True)
 
     # ── Violin Plot: Regional Variance ──
     st.markdown('<div class="section-title">Variance and Regional Variation (Violin Plot)</div>', unsafe_allow_html=True)
@@ -894,7 +1029,7 @@ def page_statistical(df: pd.DataFrame, opts: dict):
                       color_discrete_sequence=CITY_PALETTE,
                       title=f"Regional Distribution and Variance of {col_stat.upper()}")
     apply_theme(fig_v, 450)
-    st.plotly_chart(fig_v, width="stretch")
+    st.plotly_chart(fig_v, use_container_width=True)
 
     # ── Distribution with KDE & Skewness ──
     st.markdown('<div class="section-title">Probability Density and Skewness</div>', unsafe_allow_html=True)
@@ -911,7 +1046,7 @@ def page_statistical(df: pd.DataFrame, opts: dict):
                                      show_hist=True, show_rug=False,
                                      colors=[PRIMARY_COLOR])
         fig_kde.update_layout(title=f"{city_sel_dist}: {col_stat.upper()} Density & KDE", **PLOTLY_THEME, height=400)
-        st.plotly_chart(fig_kde, width="stretch")
+        st.plotly_chart(fig_kde, use_container_width=True)
     
     with col_r:
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -955,7 +1090,7 @@ def page_statistical(df: pd.DataFrame, opts: dict):
                    ticktext=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]),
         yaxis_title=col_stat, **PLOTLY_THEME, height=400,
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -1009,7 +1144,7 @@ def page_probability(df: pd.DataFrame, opts: dict):
         fig.update_layout(title=f"{city_z}: {col_z.upper()} Z-Scores over Time",
                           xaxis_title="Date", yaxis_title="Z-Score",
                           **PLOTLY_THEME, height=420)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
         # Z-score distribution
         fig2 = go.Figure()
@@ -1022,7 +1157,7 @@ def page_probability(df: pd.DataFrame, opts: dict):
         fig2.add_vline(x=z_thresh, line_dash="dash", line_color=ANOMALY_COLOR)
         fig2.add_vline(x=-z_thresh, line_dash="dash", line_color=ANOMALY_COLOR)
         fig2.update_layout(title="Z-Score Distribution", **PLOTLY_THEME, height=320)
-        st.plotly_chart(fig2, width="stretch")
+        st.plotly_chart(fig2, use_container_width=True)
 
         # Stats
         n_z = int(cdf["z_flag"].sum())
@@ -1059,7 +1194,7 @@ def page_probability(df: pd.DataFrame, opts: dict):
                                      line=dict(color=ACCENT_COLOR, width=2.5, dash="dot")))
             fig.update_layout(title=f"{city_fit}: {col_fit.upper()} Distribution Fit",
                               **PLOTLY_THEME, height=380)
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
         with col_b:
             st.markdown('<div class="section-title">Normality Test</div>', unsafe_allow_html=True)
@@ -1085,7 +1220,7 @@ def page_probability(df: pd.DataFrame, opts: dict):
                              xaxis_title="Theoretical Quantiles",
                              yaxis_title="Sample Quantiles",
                              **PLOTLY_THEME, height=360)
-        st.plotly_chart(fig_qq, width="stretch")
+        st.plotly_chart(fig_qq, use_container_width=True)
 
     # ── Tab 3: Poisson (Rainfall) ──
     with tabs[2]:
@@ -1110,7 +1245,7 @@ def page_probability(df: pd.DataFrame, opts: dict):
         fig.update_layout(title=f"{city_p}: Rainfall Poisson Distribution Fit",
                           xaxis_title="Daily Rainfall (mm)", yaxis_title="Probability",
                           **PLOTLY_THEME, height=400)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
         c1, c2, c3 = st.columns(3)
         c1.metric("Poisson λ", f"{lam:.3f} mm")
@@ -1131,7 +1266,7 @@ def page_probability(df: pd.DataFrame, opts: dict):
                 fig_ext = px.histogram(rain_data, nbins=50, title=f"{city_ext}: Rainy Day Distribution (Tail Analysis)",
                                       color_discrete_sequence=[ANOMALY_COLOR], opacity=0.7)
                 apply_theme(fig_ext, 360)
-                st.plotly_chart(fig_ext, width="stretch")
+                st.plotly_chart(fig_ext, use_container_width=True)
             
             with col2:
                 st.markdown("<br><br>", unsafe_allow_html=True)
@@ -1156,12 +1291,12 @@ def page_probability(df: pd.DataFrame, opts: dict):
                          title=f"Rare Events Timeline",
                          labels={col_rare: col_rare, "date": "Date"})
         apply_theme(fig, 400)
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
         with st.expander("View Rare Events Table", expanded=False):
             st.dataframe(rare_events[["date","city","season",col_rare,"pvalue"]].head(100)
                          .style.format({"pvalue": "{:.6f}", col_rare: "{:.2f}"}),
-                         width="stretch", hide_index=True)
+                         use_container_width=True, hide_index=True)
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -1224,7 +1359,7 @@ def page_prediction(df: pd.DataFrame, opts: dict):
         fig.update_layout(title=f"Actual vs Predicted — {target.upper()}",
                           xaxis_title="Date", yaxis_title=target,
                           **PLOTLY_THEME, height=420, hovermode="x unified")
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
         # Scatter actual vs predicted
         fig2 = px.scatter(rdf.sample(min(2000, len(rdf)), random_state=42),
@@ -1238,7 +1373,7 @@ def page_prediction(df: pd.DataFrame, opts: dict):
                                   mode="lines", name="Perfect Fit",
                                   line=dict(color=ANOMALY_COLOR, dash="dash", width=2)))
         apply_theme(fig2, 420)
-        st.plotly_chart(fig2, width="stretch")
+        st.plotly_chart(fig2, use_container_width=True)
 
     # ── Residuals ──
     st.markdown('<div class="section-title">Residual Analysis</div>', unsafe_allow_html=True)
@@ -1255,7 +1390,7 @@ def page_prediction(df: pd.DataFrame, opts: dict):
                                   mode="lines", name="Normal Fit",
                                   line=dict(color=NORMAL_COLOR, width=2, dash="dot")))
         fig3.update_layout(title="Residual Distribution", **PLOTLY_THEME, height=320)
-        st.plotly_chart(fig3, width="stretch")
+        st.plotly_chart(fig3, use_container_width=True)
 
     with col_b:
         # Residuals over time
@@ -1274,7 +1409,7 @@ def page_prediction(df: pd.DataFrame, opts: dict):
         fig4.add_hline(y=result["residual_threshold"], line_dash="dash", line_color=ANOMALY_COLOR)
         fig4.add_hline(y=-result["residual_threshold"], line_dash="dash", line_color=ANOMALY_COLOR)
         fig4.update_layout(title="Residuals over Time", **PLOTLY_THEME, height=320)
-        st.plotly_chart(fig4, width="stretch")
+        st.plotly_chart(fig4, use_container_width=True)
 
     # ── Feature Importance ──
     if result.get("feature_importance"):
@@ -1286,7 +1421,7 @@ def page_prediction(df: pd.DataFrame, opts: dict):
                       title="Feature Importance")
         apply_theme(fig5, 350)
         fig5.update_coloraxes(showscale=False)
-        st.plotly_chart(fig5, width="stretch")
+        st.plotly_chart(fig5, use_container_width=True)
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -1366,7 +1501,7 @@ def page_anomaly(df: pd.DataFrame, opts: dict):
     fig.update_layout(title=f"{city_anom}: {col_anom.upper()} — Anomaly Markers",
                       xaxis_title="Date", yaxis_title=col_anom,
                       **PLOTLY_THEME, height=420)
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
     # ── Flag breakdown stacked bar ──
     st.markdown('<div class="section-title">Anomaly Flag Breakdown by City</div>', unsafe_allow_html=True)
@@ -1382,7 +1517,7 @@ def page_anomaly(df: pd.DataFrame, opts: dict):
                           name="Z-Score Anomalies", marker_color=ANOMALY_COLOR))
     fig2.update_layout(barmode="stack", title="Anomaly Count by City and Method",
                        **PLOTLY_THEME, height=360)
-    st.plotly_chart(fig2, width="stretch")
+    st.plotly_chart(fig2, use_container_width=True)
 
     # ── Heatmap ──
     st.markdown('<div class="section-title">Anomaly Frequency Heatmap (City × Month)</div>', unsafe_allow_html=True)
@@ -1391,7 +1526,7 @@ def page_anomaly(df: pd.DataFrame, opts: dict):
         fig3 = px.imshow(anom_heat, color_continuous_scale="Reds", aspect="auto",
                          text_auto=True, title="Anomaly Count: City × Month")
         fig3.update_layout(**PLOTLY_THEME, height=350)
-        st.plotly_chart(fig3, width="stretch")
+        st.plotly_chart(fig3, use_container_width=True)
 
     # ── Annual trend ──
     st.markdown('<div class="section-title">Anomaly Count per Year</div>', unsafe_allow_html=True)
@@ -1402,7 +1537,7 @@ def page_anomaly(df: pd.DataFrame, opts: dict):
                   labels={"is_anomaly": "Anomaly Count", "year": "Year"})
     apply_theme(fig4, 340)
     fig4.update_coloraxes(showscale=False)
-    st.plotly_chart(fig4, width="stretch")
+    st.plotly_chart(fig4, use_container_width=True)
 
     # ── Table ──
     st.markdown('<div class="section-title">Anomaly Records Table</div>', unsafe_allow_html=True)
@@ -1412,7 +1547,7 @@ def page_anomaly(df: pd.DataFrame, opts: dict):
 
     st.dataframe(
         anom_table.head(500).style.format({"zscore": "{:.2f}", col_anom: "{:.2f}"}),
-        width="stretch", height=350, hide_index=True,
+        use_container_width=True, height=350, hide_index=True,
     )
     st.caption(f"Showing top 500 of {len(anom_table):,} anomaly records")
 
@@ -1486,7 +1621,7 @@ def page_map(df: pd.DataFrame, opts: dict):
         height=560,
         margin=dict(l=0, r=0, t=48, b=0),
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
     # City comparison table
     st.markdown('<div class="section-title">City-Level Summary</div>', unsafe_allow_html=True)
@@ -1497,7 +1632,7 @@ def page_map(df: pd.DataFrame, opts: dict):
                  .sort_values("Anomaly %", ascending=False)
                  .style.format(precision=2)
                  .background_gradient(subset=["Anomaly %"], cmap="Reds"),
-                 width="stretch", hide_index=True)
+                 use_container_width=True, hide_index=True)
 
     # Choropleth-style bar
     st.markdown('<div class="section-title">City Anomaly Intensity</div>', unsafe_allow_html=True)
@@ -1510,7 +1645,7 @@ def page_map(df: pd.DataFrame, opts: dict):
     )
     apply_theme(fig2, 360)
     fig2.update_coloraxes(showscale=False)
-    st.plotly_chart(fig2, width="stretch")
+    st.plotly_chart(fig2, use_container_width=True)
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -1627,7 +1762,7 @@ def page_insights(df: pd.DataFrame, opts: dict):
                     text_auto=".2f", aspect="auto",
                     title="Pearson Correlation Matrix")
     fig.update_layout(**PLOTLY_THEME, height=480)
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
     # ── Seasonal radar ──
     st.markdown('<div class="section-title">Seasonal Climate Profile</div>', unsafe_allow_html=True)
@@ -1656,7 +1791,7 @@ def page_insights(df: pd.DataFrame, opts: dict):
         title="Normalised Seasonal Climate Profile",
         **PLOTLY_THEME, height=420,
     )
-    st.plotly_chart(fig2, width="stretch")
+    st.plotly_chart(fig2, use_container_width=True)
 
     # ── Year-over-year comparison ──
     st.markdown('<div class="section-title">Year-over-Year Temperature Anomaly</div>', unsafe_allow_html=True)
@@ -1672,7 +1807,7 @@ def page_insights(df: pd.DataFrame, opts: dict):
     fig3.update_layout(title="Annual Mean Temperature Anomaly vs Monthly Baseline",
                        xaxis_title="Year", yaxis_title="Temperature Anomaly (°C)",
                        **PLOTLY_THEME, height=360)
-    st.plotly_chart(fig3, width="stretch")
+    st.plotly_chart(fig3, use_container_width=True)
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
