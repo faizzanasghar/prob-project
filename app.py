@@ -60,14 +60,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# -- 3D Splash Screen (fully responsive) ------------------------------------
+# -- 3D Splash Screen (fully responsive, two-line stacked title) -------------
 def render_splash():
     splash_html = """
     <div id="splash-screen">
         <canvas id="three-canvas"></canvas>
         <div class="splash-content">
             <div class="splash-icon">&#x26C8;&#xFE0F;</div>
-            <div class="splash-title">WEATHER<span>INTELLIGENCE</span></div>
+            <div class="splash-line1">WEATHER</div>
+            <div class="splash-line2">INTELLIGENCE</div>
             <div class="splash-subtitle">Advanced Meteorological Computing</div>
             <div class="splash-bar"><div class="splash-bar-fill"></div></div>
         </div>
@@ -77,12 +78,11 @@ def render_splash():
             position: fixed;
             top: 0; left: 0;
             width: 100vw; height: 100vh;
-            padding: env(safe-area-inset-top,0) env(safe-area-inset-right,0)
-                     env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
-            background-color: #05070A;
+            padding: env(safe-area-inset-top,0px) env(safe-area-inset-right,0px)
+                     env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);
+            background: #05070A;
             z-index: 999999;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
             pointer-events: none;
@@ -90,61 +90,81 @@ def render_splash():
             animation: fadeOutSplash 1s forwards 3.8s;
         }
         #three-canvas {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            opacity: 0.55;
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%; opacity: 0.55;
         }
         .splash-content {
-            z-index: 2; text-align: center;
-            padding: 0 20px; width: 100%; max-width: 600px;
+            position: relative; z-index: 2;
+            text-align: center;
+            padding: 0 24px;
+            width: 100%;
         }
         .splash-icon {
-            font-size: clamp(28px, 8vw, 52px);
-            margin-bottom: 10px; opacity: 0;
-            animation: fadeInText 1s forwards 0.3s;
-        }
-        .splash-title {
-            font-family: "Segoe UI", system-ui, sans-serif;
-            font-size: clamp(20px, 6.5vw, 48px);
-            font-weight: 800;
-            color: #FFFFFF;
-            letter-spacing: clamp(2px, 1.2vw, 8px);
-            margin-bottom: 10px;
+            font-size: clamp(32px, 9vw, 56px);
+            line-height: 1;
+            margin-bottom: 16px;
             opacity: 0;
-            animation: fadeInText 1.5s forwards 0.5s;
-            line-height: 1.15;
-            word-break: break-word;
-            white-space: normal;
+            animation: fadeUp 0.9s forwards 0.2s;
         }
-        .splash-title span { color: #58A6FF; }
+        /* LINE 1 - WEATHER (white, larger) */
+        .splash-line1 {
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            font-size: clamp(32px, 9.5vw, 72px);
+            font-weight: 900;
+            color: #FFFFFF;
+            letter-spacing: clamp(6px, 2vw, 16px);
+            line-height: 1;
+            white-space: nowrap;
+            opacity: 0;
+            animation: fadeUp 1.2s forwards 0.5s;
+        }
+        /* LINE 2 - INTELLIGENCE (gradient blue, smaller = fits on one line) */
+        .splash-line2 {
+            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            font-size: clamp(14px, 4vw, 30px);
+            font-weight: 700;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: clamp(4px, 1.8vw, 14px);
+            line-height: 1;
+            white-space: nowrap;
+            margin-top: 4px;
+            opacity: 0;
+            animation: fadeUp 1.2s forwards 0.75s;
+        }
         .splash-subtitle {
             font-family: "Segoe UI", system-ui, sans-serif;
-            font-size: clamp(8px, 2vw, 11px);
-            color: #8B949E;
-            letter-spacing: clamp(1px, 0.8vw, 4px);
+            font-size: clamp(8px, 1.8vw, 10px);
+            color: #4a6080;
+            letter-spacing: clamp(2px, 1vw, 5px);
             text-transform: uppercase;
+            margin-top: 20px;
             opacity: 0;
-            animation: fadeInText 1.5s forwards 1.2s;
-            word-break: break-word;
+            white-space: nowrap;
+            animation: fadeUp 1s forwards 1.1s;
         }
         .splash-bar {
-            margin: 24px auto 0;
-            width: clamp(100px, 38vw, 260px);
-            height: 2px;
-            background: rgba(88,166,255,0.15);
-            border-radius: 2px; overflow: hidden;
-            opacity: 0; animation: fadeInText 0.5s forwards 1.5s;
+            margin: 22px auto 0;
+            width: clamp(80px, 35vw, 240px);
+            height: 1px;
+            background: rgba(56,189,248,0.12);
+            border-radius: 1px; overflow: hidden;
+            opacity: 0;
+            animation: fadeUp 0.4s forwards 1.4s;
         }
         .splash-bar-fill {
             height: 100%; width: 0%;
-            background: linear-gradient(90deg, #38bdf8, #818cf8);
-            border-radius: 2px;
-            animation: barGrow 2.2s ease-out forwards 1.6s;
+            background: linear-gradient(90deg, #38bdf8, #818cf8, #38bdf8);
+            background-size: 200% 100%;
+            animation: barGrow 2s ease-out forwards 1.5s,
+                       shimmer 1.5s linear infinite 1.5s;
         }
-        @keyframes barGrow   { from{width:0%} to{width:100%} }
-        @keyframes fadeInText {
-            from { opacity: 0; transform: translateY(12px); }
+        @keyframes barGrow  { from{width:0%}  to{width:100%} }
+        @keyframes shimmer  { 0%{background-position:0% 0%} 100%{background-position:200% 0%} }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
             to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes fadeOutSplash {
@@ -158,28 +178,28 @@ def render_splash():
             const canvas = document.getElementById("three-canvas");
             if (!canvas || window.threeInitialized) return;
             const isMobile = window.innerWidth < 768;
-            const N = isMobile ? 1200 : 3000;
+            const N = isMobile ? 1000 : 2500;
             const scene    = new THREE.Scene();
             const camera   = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: !isMobile });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: false });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             renderer.setSize(window.innerWidth, window.innerHeight);
             const geo = new THREE.BufferGeometry();
             const pos = new Float32Array(N * 3);
-            for (let i = 0; i < N * 3; i++) { pos[i] = (Math.random() - 0.5) * 10; }
+            for (let i = 0; i < N * 3; i++) pos[i] = (Math.random() - 0.5) * 10;
             geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-            const mat  = new THREE.PointsMaterial({ size: 0.005, color: "#58A6FF", transparent: true, opacity: 0.5 });
+            const mat  = new THREE.PointsMaterial({ size: 0.004, color: "#38bdf8", transparent: true, opacity: 0.4 });
             const mesh = new THREE.Points(geo, mat);
             scene.add(mesh); camera.position.z = 2;
-            function animate() { requestAnimationFrame(animate); mesh.rotation.y += 0.001; renderer.render(scene, camera); }
+            function animate() { requestAnimationFrame(animate); mesh.rotation.y += 0.0008; renderer.render(scene, camera); }
             animate();
             function onResize() {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
             }
-            window.addEventListener("resize",            onResize, { passive: true });
-            window.addEventListener("orientationchange", onResize, { passive: true });
+            window.addEventListener("resize", onResize, { passive: true });
+            window.addEventListener("orientationchange", function(){ setTimeout(onResize, 100); }, { passive: true });
             window.threeInitialized = true;
         })();
     </script>
@@ -1662,7 +1682,7 @@ def page_map(df: pd.DataFrame, opts: dict):
     st.dataframe(display.drop(columns=["Lat","Lon"])
                  .sort_values("Anomaly %", ascending=False)
                  .style.format(precision=2)
-                 .bar(subset=["Anomaly %"], color=["#1a3a5c", "#f87171"], align="left"),
+                 .background_gradient(subset=["Anomaly %"], cmap="Reds"),
                  use_container_width=True, hide_index=True)
 
     # Choropleth-style bar
