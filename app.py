@@ -438,11 +438,13 @@ def page_home(df: pd.DataFrame, opts: dict):
             fig = px.line(yearly, x="year", y="tavg", color="city", color_discrete_sequence=CITY_PALETTE)
             apply_theme(fig, 380)
             st.plotly_chart(fig, use_container_width=True)
+            st.caption("This line chart illustrates the mean average temperature trends across different cities over the selected years.")
         with col_r:
             sc = fdf.groupby("season").size().reset_index(name="count")
             fig2 = px.pie(sc, values="count", names="season", color_discrete_sequence=CITY_PALETTE, hole=0.7)
             apply_theme(fig2, 380)
             st.plotly_chart(fig2, use_container_width=True)
+            st.caption("This pie chart displays the proportional distribution of data records across different seasons.")
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -467,18 +469,21 @@ def page_exploration(df: pd.DataFrame, opts: dict):
         fig = px.line(monthly, x="date", y=col_ts, color="city", color_discrete_sequence=CITY_PALETTE)
         apply_theme(fig, 420)
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("This time series plot tracks the monthly average of the selected metric across various cities over time.")
 
     with tabs[1]:
         col_dist = st.selectbox("Metric", ["tavg", "prcp", "humidity", "wind_speed"], key="dist_var")
         fig_dist = px.histogram(fdf, x=col_dist, color="city", nbins=60, barmode="overlay", color_discrete_sequence=CITY_PALETTE, opacity=0.6)
         apply_theme(fig_dist, 450)
         st.plotly_chart(fig_dist, use_container_width=True)
+        st.caption("This histogram visualizes the frequency distribution and overlay of the chosen metric across different cities.")
 
     with tabs[2]:
         col_box = st.selectbox("Select variable", ["tavg", "prcp", "humidity", "wind_speed"], key="box_var")
         fig_box = px.box(fdf, x="city", y=col_box, color="city", color_discrete_sequence=CITY_PALETTE)
         apply_theme(fig_box, 450)
         st.plotly_chart(fig_box, use_container_width=True)
+        st.caption("This box plot highlights the statistical variance, median, and outliers of the selected variable for each city.")
 
     with tabs[3]:
         col_heat = st.selectbox("Intensity Metric", ["tavg", "prcp", "humidity"], key="heat_var")
@@ -489,6 +494,7 @@ def page_exploration(df: pd.DataFrame, opts: dict):
         fig_h = px.imshow(heat_matrix, color_continuous_scale="Viridis", aspect="auto", text_auto=".1f")
         apply_theme(fig_h, 380)
         st.plotly_chart(fig_h, use_container_width=True)
+        st.caption("This heatmap provides a matrix view of the selected metric's intensity across cities and months.")
 
     with tabs[4]:
         col1, col2 = st.columns(2)
@@ -498,12 +504,14 @@ def page_exploration(df: pd.DataFrame, opts: dict):
         fig_sc = px.scatter(sample, x=xc, y=yc, color="city", color_discrete_sequence=CITY_PALETTE, trendline="ols", opacity=0.4)
         apply_theme(fig_sc, 450)
         st.plotly_chart(fig_sc, use_container_width=True)
+        st.caption("This scatter plot maps the correlation between the chosen X and Y variables with an ordinary least squares trendline.")
 
     with tabs[5]:
         sample = fdf.sample(min(1500, len(fdf)), random_state=42)
         fig_3d = px.scatter_3d(sample, x="tavg", y="humidity", z="wind_speed", color="city", size="prcp", opacity=0.7, color_discrete_sequence=CITY_PALETTE)
         fig_3d.update_layout(scene=dict(xaxis=dict(gridcolor="rgba(255,255,255,0.05)"), yaxis=dict(gridcolor="rgba(255,255,255,0.05)"), zaxis=dict(gridcolor="rgba(255,255,255,0.05)")), **PLOTLY_THEME, height=600)
         st.plotly_chart(fig_3d, use_container_width=True)
+        st.caption("This 3D scatter plot models the complex relationships between temperature, humidity, and wind speed in a three-dimensional space.")
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -529,6 +537,7 @@ def page_statistical(df: pd.DataFrame, opts: dict):
         fig_v = px.violin(fdf, x="city", y=col_stat, color="city", box=True, points="all", color_discrete_sequence=CITY_PALETTE)
         apply_theme(fig_v, 450)
         st.plotly_chart(fig_v, use_container_width=True)
+        st.caption("This violin plot illustrates the probability density and distribution shape of the selected analysis variable across different cities.")
     with col_v2:
         city_sel_dist = st.selectbox("Target City", fdf["city"].unique(), key="stat_dist_city")
         city_series = fdf[fdf["city"] == city_sel_dist][col_stat].dropna()
@@ -568,6 +577,7 @@ def page_probability(df: pd.DataFrame, opts: dict):
         fig.add_hline(y=-z_thresh, line_dash="dash", line_color="#F59E0B")
         apply_theme(fig, 420)
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("This scatter plot visualizes the Z-scores over time, highlighting anomalous data points that exceed the chosen sensitivity threshold.")
 
     with tabs[1]:
         col_fit = st.selectbox("Parameter", ["tavg", "humidity"], key="fit_var")
@@ -580,6 +590,7 @@ def page_probability(df: pd.DataFrame, opts: dict):
         fig_f.add_trace(go.Scatter(x=xr, y=stats.norm.pdf(xr, mu, sigma), line=dict(color=SECONDARY_COLOR, width=3), name="Normal Fit"))
         apply_theme(fig_f, 400)
         st.plotly_chart(fig_f, use_container_width=True)
+        st.caption("This chart overlays a normal distribution curve on the empirical data histogram to assess how well the parameter fits a Gaussian model.")
 
     with tabs[2]:
         city_p = st.selectbox("Location", fdf["city"].unique(), key="pois_city")
@@ -590,6 +601,7 @@ def page_probability(df: pd.DataFrame, opts: dict):
             fig_p = px.histogram(rainy, nbins=30, color_discrete_sequence=[PRIMARY_COLOR])
             apply_theme(fig_p, 380)
             st.plotly_chart(fig_p, use_container_width=True)
+            st.caption("This histogram displays the frequency of rainfall events, used here to fit a Poisson distribution model for estimating arrival rates.")
 
     with tabs[3]:
         col_rare = st.selectbox("Metric to Scan", ["tavg", "prcp", "humidity"], key="rare_var")
@@ -633,6 +645,7 @@ def page_prediction(df: pd.DataFrame, opts: dict):
         fig.add_trace(go.Scatter(x=rdf["date"], y=rdf["predicted"], name="ML Prediction", line=dict(color=PRIMARY_COLOR, width=2)))
         apply_theme(fig, 420)
         st.plotly_chart(fig, use_container_width=True)
+        st.caption("This chart compares the machine learning model's predicted values against the actual ground truth data points.")
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -703,6 +716,7 @@ def page_anomaly(df: pd.DataFrame, opts: dict):
         fig.add_trace(go.Scatter(x=anom["date"], y=anom[col_anom], mode="markers", name="Outlier", marker=dict(color=ANOMALY_COLOR, size=8, symbol="circle-open")))
     apply_theme(fig, 420)
     st.plotly_chart(fig, use_container_width=True)
+    st.caption("This monitoring chart visualizes the selected parameter over time, distinctly marking statistical outliers identified by the Z-score anomaly detection system.")
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -721,6 +735,7 @@ def page_map(df: pd.DataFrame, opts: dict):
     fig = px.scatter_mapbox(city_stats, lat="latitude", lon="longitude", color=map_metric, size=map_metric, color_continuous_scale="Viridis", zoom=4.5, mapbox_style="carto-darkmatter")
     fig.update_layout(height=600, margin=dict(l=0, r=0, t=0, b=0))
     st.plotly_chart(fig, use_container_width=True)
+    st.caption("This interactive geographical map visualizes the spatial distribution and magnitude of the selected metric across monitoring stations.")
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
@@ -745,6 +760,7 @@ def page_insights(df: pd.DataFrame, opts: dict):
     fig = px.imshow(corr, color_continuous_scale="RdBu_r", zmin=-1, zmax=1, text_auto=".2f")
     apply_theme(fig, 450)
     st.plotly_chart(fig, use_container_width=True)
+    st.caption("This heatmap displays the Pearson correlation coefficients between temperature, precipitation, and humidity.")
 
 
 # ╔══════════════════════════════════════════════════════════════════════════╗
